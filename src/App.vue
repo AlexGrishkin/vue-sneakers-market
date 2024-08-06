@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { onMounted, provide, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import Header from './components/Header.vue'
 import CardList from './components/CardList.vue'
@@ -8,12 +8,37 @@ import Drawer from './components/Drawer.vue'
 const items = ref([])
 
 const filters = reactive({
-  sortBy: '',
+  sortBy: 'title',
   searchQuery: ''
 })
 
 const onChangeSelect = (event) => {
   filters.sortBy = event.target.value
+}
+
+const onChangeSearchInput = (event) => {
+  filters.searchQuery = event.target.value
+}
+
+const fetchFavorites = async () => {
+  try {
+    const { data: favorites } = await axios.get('https://c0abc61e8e424c50.mokky.dev/favorites')
+
+    items.value = items.value.map((item) => {
+      const favorite = favorites.find((favorite) => favorite.parentId === item.id)
+
+      if (!favorite) {
+        return item
+      }
+      return {
+        ...item,
+        isFavorite: true,
+        favoriteId: favorite.id
+      }
+    })
+  } catch (err) {
+    console.log(err)
+  }
 }
 
 // onMounted(() => {
@@ -28,27 +53,62 @@ const onChangeSelect = (event) => {
 // })
 // })
 
+const addToFavorite = async (item) => {
+  try {
+    if (!item.isFavorite) {
+      const obj = {
+        parentId: item.id
+      }
+
+      item.isFavorite = true
+
+      const { data } = await axios.post('https://c0abc61e8e424c50.mokky.dev/favorites', obj)
+
+      item.favoriteId = data.id
+
+      console.log(data)
+    } else {
+      item.isFavorite = false
+
+      await axios.delete(`https://c0abc61e8e424c50.mokky.dev/favorites/${item.favoriteId}`)
+
+      item.favoriteId = null
+    }
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+const fetchItems = async () => {
+  try {
+    const params = {
+      sortBy: filters.sortBy
+    }
+
+    if (filters.searchQuery) {
+      params.title = `*${filters.searchQuery}*`
+    }
+
+    const { data } = await axios.get('https://c0abc61e8e424c50.mokky.dev/items', { params })
+
+    items.value = data.map((obj) => ({
+      ...obj,
+      isFavorite: false,
+      favoriteId: null,
+      isAdded: false
+    }))
+  } catch (err) {
+    console.log(err)
+  }
+}
+
 onMounted(async () => {
-  try {
-    const { data } = await axios.get('https://c0abc61e8e424c50.mokky.dev/items')
-
-    items.value = data
-  } catch (err) {
-    console.log(err)
-  }
+  await fetchItems()
+  await fetchFavorites()
 })
 
-watch(filters, async () => {
-  try {
-    const { data } = await axios.get(
-      'https://c0abc61e8e424c50.mokky.dev/items?sortBy=' + filters.sortBy
-    )
-
-    items.value = data
-  } catch (err) {
-    console.log(err)
-  }
-})
+watch(filters, fetchItems)
+provide('addToFavorite', addToFavorite)
 </script>
 
 <template>
@@ -70,13 +130,14 @@ watch(filters, async () => {
           <div class="relative">
             <img class="absolute left-4 top-3" src="/search.svg" />
             <input
+              @input="onChangeSearchInput"
               class="border rounded-md py-2 pl-11 pr-4 outline-none focus:border-gray-400"
               placeholder="Поиск..."
             />
           </div>
         </div>
       </div>
-      <div class="mt-10"><CardList :items="items" /></div>
+      <div class="mt-10"><CardList :items="items" @addToFavorite="addToFavorite" /></div>
     </div>
   </div>
 </template>
