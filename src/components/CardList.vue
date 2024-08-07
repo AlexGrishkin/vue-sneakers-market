@@ -6,21 +6,11 @@ defineProps({
   items: Array
 })
 
-const emit = defineEmits(['addToFavorite'])
+const emit = defineEmits(['addToFavorite', 'addToCart'])
 
 const onClickAdd = () => {
   alert('Добавить')
 }
-
-// const addToFavorite = inject('addToFavorite')
-
-// const onClickFavorite = () => {
-//   const obj = {
-//     ...props,
-//     parentId: props.id
-//   }
-//   addToFavorite(obj)
-// }
 </script>
 
 <template>
@@ -32,9 +22,10 @@ const onClickAdd = () => {
       :imageUrl="item.imageUrl"
       :title="item.title"
       :price="item.price"
-      :onClickAdd="onClickAdd"
+      :onClickAdd="() => emit('addToCart', item)"
       :onClickFavorite="() => emit('addToFavorite', item)"
       :isFavorite="item.isFavorite"
+      :isAdded="item.isAdded"
     />
   </div>
 </template>
