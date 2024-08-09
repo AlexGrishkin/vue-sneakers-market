@@ -1,9 +1,12 @@
 <script setup>
-import { inject } from 'vue'
+import { inject, onMounted, reactive, ref, watch } from 'vue'
 import CardList from '../components/CardList.vue'
 import axios from 'axios'
+import debounce from 'lodash.debounce'
 
-const { addToCart, removeFromCart } = inject('cart')
+const { cart, addToCart, removeFromCart } = inject('cart')
+
+const items = ref([])
 
 const filters = reactive({
   sortBy: 'title',
@@ -16,22 +19,21 @@ const onClickAddPlus = (item) => {
   } else {
     removeFromCart(item)
   }
-  console.log(cart)
 }
 
 const onChangeSelect = (event) => {
   filters.sortBy = event.target.value
 }
 
-const onChangeSearchInput = (event) => {
+const onChangeSearchInput = debounce((event) => {
   filters.searchQuery = event.target.value
-}
+}, 300)
 
 const addToFavorite = async (item) => {
   try {
     if (!item.isFavorite) {
       const obj = {
-        parentId: item.id
+        item_id: item.id
       }
 
       item.isFavorite = true
@@ -52,6 +54,72 @@ const addToFavorite = async (item) => {
     console.log(err)
   }
 }
+
+const fetchFavorites = async () => {
+  try {
+    const { data: favorites } = await axios.get('https://c0abc61e8e424c50.mokky.dev/favorites')
+
+    items.value = items.value.map((item) => {
+      const favorite = favorites.find((favorite) => favorite.item_id === item.id)
+
+      if (!favorite) {
+        return item
+      }
+      return {
+        ...item,
+        isFavorite: true,
+        favoriteId: favorite.id
+      }
+    })
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+const fetchItems = async () => {
+  try {
+    const params = {
+      sortBy: filters.sortBy
+    }
+
+    if (filters.searchQuery) {
+      params.title = `*${filters.searchQuery}*`
+    }
+
+    const { data } = await axios.get('https://c0abc61e8e424c50.mokky.dev/items', { params })
+
+    items.value = data.map((obj) => ({
+      ...obj,
+      isFavorite: false,
+      favoriteId: null,
+      isAdded: false
+    }))
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+onMounted(async () => {
+  const localCart = localStorage.getItem('cart')
+  cart.value = localCart ? JSON.parse(localCart) : []
+
+  await fetchItems()
+  await fetchFavorites()
+
+  items.value = items.value.map((item) => ({
+    ...item,
+    isAdded: cart.value.some((cartItem) => cartItem.id === item.id)
+  }))
+})
+
+watch(cart, () => {
+  items.value = items.value.map((item) => ({
+    ...item,
+    isAdded: false
+  }))
+})
+
+watch(filters, fetchItems)
 </script>
 
 <template>
