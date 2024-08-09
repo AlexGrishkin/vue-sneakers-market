@@ -1,6 +1,7 @@
 <script setup>
-import { inject, onMounted, reactive, ref, watch } from 'vue'
+import { inject, onMounted, provide, reactive, ref, watch } from 'vue'
 import CardList from '../components/CardList.vue'
+import SelectFilter from '../components/SelectFilter.vue'
 import axios from 'axios'
 import debounce from 'lodash.debounce'
 
@@ -21,8 +22,8 @@ const onClickAddPlus = (item) => {
   }
 }
 
-const onChangeSelect = (event) => {
-  filters.sortBy = event.target.value
+const onChangeSelect = (value) => {
+  filters.sortBy = value
 }
 
 const onChangeSearchInput = debounce((event) => {
@@ -120,6 +121,8 @@ watch(cart, () => {
 })
 
 watch(filters, fetchItems)
+
+provide('select', { onChangeSelect })
 </script>
 
 <template>
@@ -127,11 +130,7 @@ watch(filters, fetchItems)
     <h2 class="text-3xl font-bold mb-8">Все кроссовки</h2>
 
     <div class="flex gap-4">
-      <select @change="onChangeSelect" class="py-2 px-3 border rounded-md outline-none">
-        <option value="name">По названию</option>
-        <option value="price">По цене (дешевые)</option>
-        <option value="-price">По цене (дорогие)</option>
-      </select>
+      <SelectFilter @click="() => onChangeSelect"></SelectFilter>
 
       <div class="relative">
         <img class="absolute left-4 top-3" src="/search.svg" />
